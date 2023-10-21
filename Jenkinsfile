@@ -1,20 +1,5 @@
 pipeline {
-    agent {
-        label 'windows_agent'
-    }
-
-    environment {
-        SCRIPTS_DIR = 'C:\\Scripts\\M1\\create_stick'
-        SVN_URL = 'https://se-svne-01.packsize.local/svn/nextgen/branch/M1/PLC/Target_1.27.0.0'
-        SVN_REVISION = '10074'
-        SVN_CREDENTIALS_ID = 'b528ade6-13be-411f-891f-22047a5b3aeb'
-        JENKINS_HOME = 'C:\\ProgramData\\Jenkins\\.jenkins'
-        BUILD_NUMBER = '23'
-        JOB_NAME = 'M1'
-        PLC_IP = '10.9.9.57'
-        APPLICATION_NAME = 'Prod_Version2'
-        SVN_TAG = 'Target_1.27.0.0'
-    }
+    agent any
 
     stages {
         stage('Set up enviroment') {
@@ -38,7 +23,7 @@ pipeline {
                     echo Python version:
                     python --version
                     echo Checkout Code
-                    C:\\Users\\agent\\AppData\\Local\\Programs\\Python\\Python312\\python.exe %SCRIPTS_DIR%\\_Execute_checkout_project.py %SVN_URL% %APPLICATION_NAME% 
+                    REM C:\\Users\\agent\\AppData\\Local\\Programs\\Python\\Python312\\python.exe %SCRIPTS_DIR%\\_Execute_checkout_project.py %SVN_URL% %APPLICATION_NAME% 
                 '''
 
             }
