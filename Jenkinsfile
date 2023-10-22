@@ -1,89 +1,60 @@
 pipeline {
     agent any
-
+    
+    parameters {
+        choice(name: 'CONFIG', choices: ['35184', '35164'], description: 'Select the configuration')
+    }
+    environment {
+        apiUrl = 'http://10.9.9.145:5000/execute_script'
+        repo = 'https://se-svne-01.packsize.local/svn/nextgen/tag/M1/PLC/'
+    }
     stages {
-        stage('Set up enviroment') {
+        stage('Set up environment') {
             steps {
-               bat '''
-                    @echo off
-                    REM set Python virtual environment 
+                script {
+                    def CONFIGURATIONS = [
+                        '35184': [
+                            'CODESYS_PATH': '"C:\\Program Files\\CODESYS 3.5.18.40\\CODESYS\\Common\\CODESYS.exe"',
+                            'PROFILE': '"CODESYS V3.5 SP18 Patch 4"',
+                            'ADDITIONAL_FOLDER': '"C:\\Program Files\\CODESYS 3.5.18.40\\CODESYS\\AdditionalFolders\\M1"'
+                        ],
+                        '35164': [
+                            'CODESYS_PATH': '"C:\\Program Files\\CODESYS 3.5.16.40\\CODESYS\\Common\\CODESYS.exe" --noUI',
+                            'PROFILE': '"CODESYS V3.5 SP16 Patch 4"',
+                            'ADDITIONAL_FOLDER': '"C:\\Program Files\\CODESYS 3.5.16.40\\CODESYS\\AdditionalFolders\\M1"'
+                        ]
+                    ]
+                    def selectedConfig = CONFIGURATIONS[params.CONFIG]
+                    env.codesysBaseCommand = "${selectedConfig.CODESYS_PATH} --Profile=${selectedConfig.PROFILE} --AdditionalFolder=${selectedConfig.ADDITIONAL_FOLDER}"
+                }
+            }
+        }
+        
+        stage('Checkout project from SVN') {
+            steps {
+                script {
+                    def arg1 = "${env.repo}${SVN_TAG}"
+                    def arg2 = 'D:\\Micaels_temp\\api_dev\\WORKING_FOLDER'
+                    def arg3 = 'M1'
+
+                    def runScriptPath = 'D:\\Micaels_temp\\api_dev\\checkout_project.py'
                     
-                    echo Updating PLC firmware
-                    REM python.exe %SCRIPTS_DIR%\\_Execute_M1.py %SVN_REVISION% %SVN_URL% %JENKINS_HOME% %BUILD_NUMBER% %JOB_NAME% %PLC_IP% %APPLICATION_NAME% %SVN_TAG%
-                '''
+                    def scriptArgs = "${arg1} ${arg2} ${arg3}"
+                  
+                    
+                    env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
+
+                    
+                    def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
+                    
+                    def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
+                    
+                    def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
+                    if (response.status != 200) {
+                        error "API call failed with status ${response.status}"
+                    }
+                }
             }
         }
-        
-        stage('Checkout Code') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Environment variables:
-                    set
-                    echo Python version:
-                    python --version
-                    echo Checkout Code
-                    REM C:\\Users\\agent\\AppData\\Local\\Programs\\Python\\Python312\\python.exe %SCRIPTS_DIR%\\_Execute_checkout_project.py %SVN_URL% %APPLICATION_NAME% 
-                '''
-
-            }
-        }
-        
-
-        
-        stage('Unit Test') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Unit Test     
-                '''
-
-            }
-        }
-        
-         stage('Deployment to RnD') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Deployment to Rnd
-                '''
-
-            }
-        }
-        
-       
-        stage('Documentation') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Create documentation
-                '''
-
-            }
-        }
-        
-        
-        stage('Archiving') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Archive project for future use
-                '''
-
-            }
-        }
-        
-        
-        stage('Notification') {
-            steps {
-               bat '''
-                    @echo off
-                    echo Notification
-                '''
-
-            }
-        }
-        
-        
     }
 }
