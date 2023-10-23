@@ -1,3 +1,4 @@
+from waitress import serve
 from flask import Flask, request, jsonify
 import subprocess
 
@@ -29,4 +30,4 @@ def execute_script():
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    serve(app, host='0.0.0.0', port=5000)
