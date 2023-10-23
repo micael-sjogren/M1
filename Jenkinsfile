@@ -1,15 +1,35 @@
+def tags = []
+
 pipeline {
     agent any
-    
     parameters {
         choice(name: 'CONFIG', choices: ['35184', '35164'], description: 'Select the configuration')
-        choice(name: 'SVN_TAG', choices: ['Tag1', 'Tag2'], description: 'Select the SVN Tag') // Adding SVN_TAG as a choice parameter
+        choice(name: 'SVN_TAG', choices: tags, description: 'Select the SVN Tag')
     }
     environment {
         apiUrl = 'http://10.9.9.145:5000/execute_script'
         repo = 'https://se-svne-01.packsize.local/svn/nextgen/tag/M1/PLC/'
     }
     stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    dir('svn_tags') {
+                        checkout([
+                            $class: 'SubversionSCM',
+                            locations: [[
+                                remote: 'https://se-svne-01.packsize.local/svn/nextgen/tag/M1/PLC/',
+                                local: '.'
+                            ]]
+                        ])
+                        tags = sh(returnStdout: true, script: 'ls -1').trim().split('\n')
+                    }
+                    deleteDir()
+                }
+                input message: 'Select SVN Tag', parameters: [choice(name: 'SVN_TAG', choices: tags)]
+            }
+        }
+        
         stage('Set up environment') {
             steps {
                 script {
@@ -30,24 +50,24 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Checkout project from SVN') {
             steps {
                 script {
-                    def arg1 = "${env.repo}${params.SVN_TAG}" // Use params.SVN_TAG to get the selected SVN_TAG
+                    def arg1 = "${env.repo}${params.SVN_TAG}"
                     def arg2 = 'D:\\Micaels_temp\\api_dev\\WORKING_FOLDER'
                     def arg3 = 'M1'
 
                     def runScriptPath = 'D:\\Micaels_temp\\api_dev\\checkout_project.py'
                     
                     def scriptArgs = "${arg1} ${arg2} ${arg3}"
-                    
+
                     env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
 
                     def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
                     
                     def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
-                    
+
                     def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
                     if (response.status != 200) {
                         error "API call failed with status ${response.status}"
