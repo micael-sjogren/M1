@@ -1,14 +1,28 @@
 pipeline {
     agent any
-    
+
     parameters {
         choice(name: 'CONFIG', choices: ['35184', '35164'], description: 'Select the configuration')
     }
+
     environment {
-        apiUrl = 'http://10.9.9.145:5000/execute_script'
+        apiUrl = 'http://10.9.11.51:8888/execute_script'
         repo = 'https://se-svne-01.packsize.local/svn/nextgen/tag/M1/PLC/'
     }
+
     stages {
+        stage('Initial Setup') {
+            steps {
+                script {
+                    def now = new Date()
+                    env.timestamp = now.format("yyyyMMdd_HHmm", TimeZone.getTimeZone('UTC'))
+                    env.working_folder = "C:\\JenkinsNode\\Scripts\\M1\\pipeline_scripts\\${env.timestamp}_WORKING_FOLDER"
+                }
+            }
+        }
+    
+    
+
         stage('Set up environment') {
             steps {
                 script {
@@ -30,15 +44,15 @@ pipeline {
             }
         }
         
+        
         stage('Checkout project from SVN') {
             steps {
                 script {
                     def arg1 = "${env.repo}${SVN_TAG}"
-                    def arg2 = 'D:\\Micaels_temp\\api_dev\\WORKING_FOLDER'
+                    def arg2 = "${env.working_folder}"
                     def arg3 = 'M1'
 
-                    def runScriptPath = 'D:\\Micaels_temp\\api_dev\\checkout_project.py'
-                    
+                    def runScriptPath = 'C:\\JenkinsNode\\Scripts\\M1\\pipeline_scripts\\checkout_project.py'
                     def scriptArgs = "${arg1} ${arg2} ${arg3}"
                   
                     
