@@ -40,7 +40,6 @@ pipeline {
                     def now = new Date()
                     env.timestamp = now.format("yyyyMMdd_HHmm", TimeZone.getTimeZone('UTC'))
                     env.working_folder = "${env.scriptpath}${env.timestamp}_${SVN_TAG}_M1"
-
                 }
             }
         }
@@ -55,12 +54,9 @@ pipeline {
                     def runScriptPath = "${scriptpath}generate_application.py"
                     def scriptArgs = "${arg1} ${arg2} ${arg3}"
                   
-                    
                     env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
 
-                    
                     def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
-                    
                     def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
                     
                     def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
@@ -70,5 +66,27 @@ pipeline {
                 }
             }
         }
-    }
+
+        stage('create usb stick files') {
+            steps {
+                script {
+                    def workspaceArg = "--workspace \"${scriptpath}\\tmp\""
+                    def extractPathArg = "--extract_path \"${scriptpath}\\source\\usbupdate-mx6.zip\""
+                    def updateAppPathArg = "--update_app_path \"${env.working_folder}\""
+                    def composePathArg = "--compose_path \"${scriptpath}\\usbupdate-mx6.zip\""
+
+                    def pythonCommand = "python ${scriptpath}create_usb_stick_files.py ${workspaceArg} ${extractPathArg} ${updateAppPathArg} ${composePathArg}"
+
+                    def escapedPythonCommand = pythonCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
+
+                    def payload = "{\"scriptPath\":\"${escapedPythonCommand}\"}"
+
+                    def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
+                    if (response.status != 200) {
+                        error "API call failed with status ${response.status}"
+                    }
+                }
+            }
+        }
+    } // This is the missing closing brace for the 'stages' block
 }
