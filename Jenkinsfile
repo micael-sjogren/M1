@@ -47,18 +47,14 @@ pipeline {
         stage('Generate application.app from svn path') {
             steps {
                 script {
-                    def arg1 = "${env.working_folder}"
-                    def arg2 = 'Prod_Version2'
+                    def arg1 = "${env.working_folder}"  // this is the working folder where all created files will be
+                    def arg2 = 'Prod_Version2'      
                     def arg3 = "${env.repo}${SVN_TAG}"
-                    
                     def runScriptPath = "${scriptpath}generate_application.py"
                     def scriptArgs = "${arg1} ${arg2} ${arg3}"
-                  
                     env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
-
                     def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
                     def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
-                    
                     def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
                     if (response.status != 200) {
                         error "API call failed with status ${response.status}"
@@ -73,14 +69,10 @@ pipeline {
                     def workspaceArg = "--workspace \"${scriptpath}\\tmp\""
                     def extractPathArg = "--extract_path \"${scriptpath}\\source\\usbupdate-mx6.zip\""
                     def updateAppPathArg = "--update_app_path \"${env.working_folder}\""
-                    def composePathArg = "--compose_path \"${scriptpath}\\usbupdate-mx6.zip\""
-
+                    def composePathArg = "--compose_path \"${working_folder}\\usbupdate-mx6.zip\""
                     def pythonCommand = "python ${scriptpath}create_usb_stick_files.py ${workspaceArg} ${extractPathArg} ${updateAppPathArg} ${composePathArg}"
-
                     def escapedPythonCommand = pythonCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
-
                     def payload = "{\"scriptPath\":\"${escapedPythonCommand}\"}"
-
                     def response = httpRequest httpMode: 'POST', url: env.apiUrl, contentType: 'APPLICATION_JSON', requestBody: payload
                     if (response.status != 200) {
                         error "API call failed with status ${response.status}"
@@ -88,5 +80,20 @@ pipeline {
                 }
             }
         }
-    } 
+        
+        stage('Run Unit Tests') {
+            steps {
+                echo "Unit test logic will go here"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Build was successful."
+        }
+        failure {
+            echo "Build failed."
+        }
+    }
 }
