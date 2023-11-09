@@ -33,57 +33,47 @@ pipeline {
             }
         }
 
-        stage('Initial Setup') {
+        stage('Pipeline Execution') {
             steps {
                 script {
-                    def now = new Date()
-                    env.timestamp = now.format("yyyyMMdd_HHmm", TimeZone.getTimeZone('UTC'))
-                    env.working_folder = "${env.scriptpath}${env.timestamp}_${SVN_TAG}_M1"
-                }
-            }
-        }
+                    def versions = ['Prod_Version2', 'Prod_Version1']
+                    versions.each { version ->
+                        def now = new Date()
+                        env.timestamp = now.format("yyyyMMdd_HHmm", TimeZone.getTimeZone('UTC'))
+                        env.working_folder = "${env.scriptpath}${env.timestamp}_${SVN_TAG}_M1_${version}"
 
-        stage('Generate application.app from svn path') {
-            steps {
-                script {
-                    def arg1 = "${env.working_folder}"
-                    echo "arg1: ${env.working_folder}" 
-                    def arg2 = 'Prod_Version2' 
-                    echo "arg2: Prod_Version2" 
-                    def arg3 = "${env.repo}${SVN_TAG}"
-                    echo "arg3: ${env.repo}${SVN_TAG}" 
-                    def runScriptPath = "${scriptpath}generate_application.py"
-                    def scriptArgs = "${arg1} ${arg2} ${arg3}"
-                    env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
-                }
-                withCredentials([usernamePassword(credentialsId: 'api-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    script {
-                        def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
-                        def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
-                        echo "Payload: ${payload}" 
-                        def response = httpRequest httpMode: 'POST',
-                                                   url: env.apiUrl,
-                                                   contentType: 'APPLICATION_JSON',
-                                                   requestBody: payload,
-                                                   authentication: 'api-credentials'
-                        if (response.status != 200) {
-                            error "API call failed with status ${response.status}"
+                        def arg1 = "${env.working_folder}"
+                        echo "arg1: ${env.working_folder}" 
+                        def arg2 = version 
+                        echo "arg2: ${version}" 
+                        def arg3 = "${env.repo}${SVN_TAG}"
+                        echo "arg3: ${env.repo}${SVN_TAG}" 
+                        def runScriptPath = "${scriptpath}generate_application.py"
+                        def scriptArgs = "${arg1} ${arg2} ${arg3}"
+                        env.codesysCommand = "${env.codesysBaseCommand} --runscript=\"${runScriptPath}\" --scriptargs:\"${scriptArgs}\""
+
+                        withCredentials([usernamePassword(credentialsId: 'api-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                            def escapedCodesysCommand = env.codesysCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
+                            def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
+                            echo "Payload: ${payload}" 
+                            def response = httpRequest httpMode: 'POST',
+                                                       url: env.apiUrl,
+                                                       contentType: 'APPLICATION_JSON',
+                                                       requestBody: payload,
+                                                       authentication: 'api-credentials'
+                            if (response.status != 200) {
+                                error "API call failed with status ${response.status}"
+                            }
                         }
-                    }
-                }
-            }
-        } 
 
-        stage('create usb stick files') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'api-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    script {
                         def workspaceArg = "--workspace \"${scriptpath}\\tmp\""
                         def extractPathArg = "--extract_path \"${scriptpath}\\source\\usbupdate-mx6.zip\""
                         def updateAppPathArg = "--update_app_path \"${env.working_folder}\""
-                        def composePathArg = "--compose_path \"${working_folder}\\usbupdate-mx6.zip\""
+                        def composePathArg = "--compose_path \"${working_folder}\\${version}\\usbupdate-mx6.zip\""
                         def pythonCommand = "python ${scriptpath}create_usb_stick_files.py ${workspaceArg} ${extractPathArg} ${updateAppPathArg} ${composePathArg}"
-                        def payload = "{\"scriptPath\":\"${pythonCommand}\"}"
+                        def escapedCodesysCommand = pythonCommand.replaceAll('\\\\', '\\\\\\\\').replaceAll('"', '\\\\"')
+                        def payload = "{\"scriptPath\":\"${escapedCodesysCommand}\"}"
+                        echo "Payload: ${payload}" 
                         def response = httpRequest httpMode: 'POST',
                                                        url: env.apiUrl,
                                                        contentType: 'APPLICATION_JSON',
